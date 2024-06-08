@@ -1,4 +1,5 @@
-import javax.swing.JOptionPane;
+import javax.swing.*;
+import java.util.*;
 
 class Usuario {
     String nombre;
@@ -15,41 +16,65 @@ class Libro {
     String titulo;
     String autor;
     boolean prestado;
-    Usuario usuarioPrestamo;
 
     public Libro(int id, String titulo, String autor) {
         this.id = id;
         this.titulo = titulo;
         this.autor = autor;
         this.prestado = false;
-        this.usuarioPrestamo = null;
-    }
-
-    public void prestarLibro(Usuario usuario) {
-        this.prestado = true;
-        this.usuarioPrestamo = usuario;
-    }
-
-    public void devolverLibro() {
-        this.prestado = false;
-        this.usuarioPrestamo = null;
     }
 }
 
-class NodoLibro {
-    Libro libro;
-    NodoLibro hijoIzquierdo;
-    NodoLibro hijoDerecho;
+class Grafo {
+    private Map<Integer, Map<Integer, Integer>> adjList; // Nodo origen -> (Nodo destino -> peso)
 
-    public NodoLibro(Libro libro) {
-        this.libro = libro;
-        this.hijoIzquierdo = null;
-        this.hijoDerecho = null;
+    public Grafo() {
+        adjList = new HashMap<>();
+    }
+
+    public void insertarNodo(int id) {
+        adjList.putIfAbsent(id, new HashMap<>());
+    }
+
+    public void insertarArista(int origen, int destino, int peso) {
+        adjList.get(origen).put(destino, peso);
+    }
+
+    public void eliminarArista(int origen, int destino) {
+        if (adjList.containsKey(origen)) {
+            adjList.get(origen).remove(destino);
+        }
+    }
+
+    public void eliminarNodo(int id) {
+        adjList.values().forEach(e -> e.remove(id));
+        adjList.remove(id);
+    }
+
+    public Map<Integer, Integer> obtenerAdyacentes(int id) {
+        return adjList.get(id);
+    }
+
+    public boolean contieneNodo(int id) {
+        return adjList.containsKey(id);
+    }
+
+    public String mostrarGrafo() {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<Integer, Map<Integer, Integer>> entry : adjList.entrySet()) {
+            sb.append("Nodo ").append(entry.getKey()).append(":\n");
+            for (Map.Entry<Integer, Integer> adj : entry.getValue().entrySet()) {
+                sb.append("  -> ").append(adj.getKey()).append(" (peso: ").append(adj.getValue()).append(")\n");
+            }
+        }
+        return sb.toString();
     }
 }
 
 public class Biblioteca {
-    static ArbolLibros arbolLibros = new ArbolLibros();
+    static Grafo grafo = new Grafo();
+    static Map<Integer, Usuario> usuarios = new HashMap<>();
+    static Map<Integer, Libro> libros = new HashMap<>();
     static int ultimoIdUsuario = 0;
 
     public static void main(String[] args) {
@@ -59,63 +84,77 @@ public class Biblioteca {
             try {
                 opcion = Short.parseShort(JOptionPane.showInputDialog(null, "Escoga lo que desea hacer en la biblioteca:\n"
                         + "1. Agregar Libro.\n"
-                        + "2. Mostrar Libros.\n"
-                        + "3. Prestar Libro.\n"
-                        + "4. Devolver Libro.\n"
-                        + "5. Salir", "Biblioteca", JOptionPane.PLAIN_MESSAGE));
+                        + "2. Agregar Usuario.\n"
+                        + "3. Mostrar Grafo.\n"
+                        + "4. Prestar Libro.\n"
+                        + "5. Devolver Libro.\n"
+                        + "6. Eliminar Libro.\n"
+                        + "7. Eliminar Usuario.\n"
+                        + "8. Salir", "Biblioteca", JOptionPane.PLAIN_MESSAGE));
 
                 switch (opcion) {
                     case 1:
-                        int id = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del libro:", "Agregando Libro", JOptionPane.PLAIN_MESSAGE));
+                        int idLibro = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del libro:", "Agregando Libro", JOptionPane.PLAIN_MESSAGE));
                         String titulo = JOptionPane.showInputDialog(null, "Ingrese el título del libro:", "Agregando Libro", JOptionPane.PLAIN_MESSAGE);
                         String autor = JOptionPane.showInputDialog(null, "Ingrese el autor del libro:", "Agregando Libro", JOptionPane.PLAIN_MESSAGE);
-                        arbolLibros.insertar(new Libro(id, titulo, autor));
+                        Libro libro = new Libro(idLibro, titulo, autor);
+                        libros.put(idLibro, libro);
+                        grafo.insertarNodo(idLibro);
                         break;
 
                     case 2:
-                        if (!arbolLibros.estaVacio()) {
-                            JOptionPane.showMessageDialog(null, "Los libros en la biblioteca son:\n" + arbolLibros.mostrarLibros(), "Biblioteca", JOptionPane.PLAIN_MESSAGE);
+                        String nombreUsuario = JOptionPane.showInputDialog(null, "Ingrese su nombre:", "Crear Usuario", JOptionPane.PLAIN_MESSAGE);
+                        if (nombreUsuario != null && !nombreUsuario.isEmpty()) {
+                            ultimoIdUsuario++;
+                            Usuario usuario = new Usuario(nombreUsuario, ultimoIdUsuario);
+                            usuarios.put(ultimoIdUsuario, usuario);
+                            grafo.insertarNodo(ultimoIdUsuario);
                         } else {
-                            JOptionPane.showMessageDialog(null, "No hay libros en la biblioteca.", "Biblioteca", JOptionPane.INFORMATION_MESSAGE);
+                            JOptionPane.showMessageDialog(null, "Debe ingresar un nombre válido.", "Crear Usuario", JOptionPane.ERROR_MESSAGE);
                         }
                         break;
 
                     case 3:
-                        if (!arbolLibros.estaVacio()) {
-                            int idLibroPrestamo = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del libro que desea prestar:", "Prestar Libro", JOptionPane.PLAIN_MESSAGE));
-                            Libro libroPrestamo = arbolLibros.buscarLibro(idLibroPrestamo);
-                            if (libroPrestamo != null && !libroPrestamo.prestado) {
-                                Usuario usuario = crearUsuario();
-                                if (usuario != null) {
-                                    libroPrestamo.prestarLibro(usuario);
-                                    JOptionPane.showMessageDialog(null, "Libro prestado exitosamente a " + usuario.nombre, "Prestar Libro", JOptionPane.INFORMATION_MESSAGE);
-                                } else {
-                                    JOptionPane.showMessageDialog(null, "No se pudo crear el usuario.", "Prestar Libro", JOptionPane.ERROR_MESSAGE);
-                                }
-                            } else {
-                                JOptionPane.showMessageDialog(null, "El libro no está disponible para préstamo.", "Prestar Libro", JOptionPane.INFORMATION_MESSAGE);
-                            }
-                        } else {
-                            JOptionPane.showMessageDialog(null, "No hay libros en la biblioteca.", "Prestar Libro", JOptionPane.INFORMATION_MESSAGE);
-                        }
+                        JOptionPane.showMessageDialog(null, "Estructura del Grafo:\n" + grafo.mostrarGrafo(), "Biblioteca", JOptionPane.PLAIN_MESSAGE);
                         break;
 
                     case 4:
-                        if (!arbolLibros.estaVacio()) {
-                            int idLibroDevolucion = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del libro que desea devolver:", "Devolver Libro", JOptionPane.PLAIN_MESSAGE));
-                            Libro libroDevolucion = arbolLibros.buscarLibro(idLibroDevolucion);
-                            if (libroDevolucion != null && libroDevolucion.prestado) {
-                                libroDevolucion.devolverLibro();
-                                JOptionPane.showMessageDialog(null, "Libro devuelto exitosamente.", "Devolver Libro", JOptionPane.INFORMATION_MESSAGE);
-                            } else {
-                                JOptionPane.showMessageDialog(null, "No se puede devolver el libro. Verifique el ID ingresado o si el libro no está prestado.", "Devolver Libro", JOptionPane.INFORMATION_MESSAGE);
-                            }
+                        int idUsuarioPrestamo = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del usuario:", "Prestar Libro", JOptionPane.PLAIN_MESSAGE));
+                        int idLibroPrestamo = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del libro que desea prestar:", "Prestar Libro", JOptionPane.PLAIN_MESSAGE));
+                        if (usuarios.containsKey(idUsuarioPrestamo) && libros.containsKey(idLibroPrestamo) && !libros.get(idLibroPrestamo).prestado) {
+                            grafo.insertarArista(idUsuarioPrestamo, idLibroPrestamo, 1);
+                            libros.get(idLibroPrestamo).prestado = true;
+                            JOptionPane.showMessageDialog(null, "Libro prestado exitosamente.", "Prestar Libro", JOptionPane.INFORMATION_MESSAGE);
                         } else {
-                            JOptionPane.showMessageDialog(null, "No hay libros en la biblioteca.", "Devolver Libro", JOptionPane.INFORMATION_MESSAGE);
+                            JOptionPane.showMessageDialog(null, "No se puede prestar el libro. Verifique los IDs ingresados.", "Prestar Libro", JOptionPane.ERROR_MESSAGE);
                         }
                         break;
 
                     case 5:
+                        int idUsuarioDevolucion = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del usuario:", "Devolver Libro", JOptionPane.PLAIN_MESSAGE));
+                        int idLibroDevolucion = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del libro que desea devolver:", "Devolver Libro", JOptionPane.PLAIN_MESSAGE));
+                        if (grafo.contieneNodo(idUsuarioDevolucion) && grafo.contieneNodo(idLibroDevolucion) && libros.get(idLibroDevolucion).prestado) {
+                            grafo.eliminarArista(idUsuarioDevolucion, idLibroDevolucion);
+                            libros.get(idLibroDevolucion).prestado = false;
+                            JOptionPane.showMessageDialog(null, "Libro devuelto exitosamente.", "Devolver Libro", JOptionPane.INFORMATION_MESSAGE);
+                        } else {
+                            JOptionPane.showMessageDialog(null, "No se puede devolver el libro. Verifique los IDs ingresados.", "Devolver Libro", JOptionPane.ERROR_MESSAGE);
+                        }
+                        break;
+
+                    case 6:
+                        int idLibroElim = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del libro a eliminar:", "Eliminar Libro", JOptionPane.PLAIN_MESSAGE));
+                        grafo.eliminarNodo(idLibroElim);
+                        libros.remove(idLibroElim);
+                        break;
+
+                    case 7:
+                        int idUsuarioElim = Integer.parseInt(JOptionPane.showInputDialog(null, "Ingrese el ID del usuario a eliminar:", "Eliminar Usuario", JOptionPane.PLAIN_MESSAGE));
+                        grafo.eliminarNodo(idUsuarioElim);
+                        usuarios.remove(idUsuarioElim);
+                        break;
+
+                    case 8:
                         JOptionPane.showMessageDialog(null, "Gracias por usar la aplicación. ¡Hasta luego!", "Biblioteca", JOptionPane.PLAIN_MESSAGE);
                         break;
 
@@ -125,89 +164,6 @@ public class Biblioteca {
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(null, "Error al ingresar el número. Por favor, ingrese un número válido.", "Error", JOptionPane.ERROR_MESSAGE);
             }
-        } while (opcion != 5);
-    }
-
-    static Usuario crearUsuario() {
-        String nombreUsuario = JOptionPane.showInputDialog(null, "Ingrese su nombre:", "Crear Usuario", JOptionPane.PLAIN_MESSAGE);
-        if (nombreUsuario != null && !nombreUsuario.isEmpty()) {
-            ultimoIdUsuario++;
-            return new Usuario(nombreUsuario, ultimoIdUsuario);
-        } else {
-            JOptionPane.showMessageDialog(null, "Debe ingresar un nombre válido.", "Crear Usuario", JOptionPane.ERROR_MESSAGE);
-            return null;
-        }
-    }
-}
-
-class ArbolLibros {
-    NodoLibro raiz;
-
-    public ArbolLibros() {
-        raiz = null;
-    }
-
-    public boolean estaVacio() {
-        return raiz == null;
-    }
-
-    public void insertar(Libro libro) {
-        if (estaVacio()) {
-            raiz = new NodoLibro(libro);
-        } else {
-            insertarRecursivo(raiz, libro);
-        }
-    }
-
-    private void insertarRecursivo(NodoLibro nodo, Libro libro) {
-        if (libro.id < nodo.libro.id) {
-            if (nodo.hijoIzquierdo == null) {
-                nodo.hijoIzquierdo = new NodoLibro(libro);
-            } else {
-                insertarRecursivo(nodo.hijoIzquierdo, libro);
-            }
-        } else if (libro.id > nodo.libro.id) {
-            if (nodo.hijoDerecho == null) {
-                nodo.hijoDerecho = new NodoLibro(libro);
-            } else {
-                insertarRecursivo(nodo.hijoDerecho, libro);
-            }
-        }
-    }
-
-    public Libro buscarLibro(int id) {
-        return buscarLibroRecursivo(raiz, id);
-    }
-
-    private Libro buscarLibroRecursivo(NodoLibro nodo, int id) {
-        if (nodo == null) {
-            return null;
-        }
-
-        if (id == nodo.libro.id) {
-            return nodo.libro;
-        } else if (id < nodo.libro.id) {
-            return buscarLibroRecursivo(nodo.hijoIzquierdo, id);
-        } else {
-            return buscarLibroRecursivo(nodo.hijoDerecho, id);
-        }
-    }
-
-    public String mostrarLibros() {
-        StringBuilder resultado = new StringBuilder();
-        mostrarLibrosRecursivo(raiz, resultado);
-        return resultado.toString();
-    }
-
-    private void mostrarLibrosRecursivo(NodoLibro nodo, StringBuilder resultado) {
-        if (nodo != null) {
-            mostrarLibrosRecursivo(nodo.hijoIzquierdo, resultado);
-            resultado.append("ID: ").append(nodo.libro.id).append(", Título: ").append(nodo.libro.titulo).append(", Autor: ").append(nodo.libro.autor);
-            if (nodo.libro.prestado) {
-                resultado.append(" (Prestado a ").append(nodo.libro.usuarioPrestamo.nombre).append(")");
-            }
-            resultado.append("\n");
-            mostrarLibrosRecursivo(nodo.hijoDerecho, resultado);
-        }
+        } while (opcion != 8);
     }
 }
